@@ -1,4 +1,4 @@
-/*! choices.js v11.1.0.2 | © 2025 Josh Johnson | https://github.com/jshjohnson/Choices#readme */
+/*! choices.js v11.1.0.3 | © 2025 Josh Johnson | https://github.com/jshjohnson/Choices#readme */
 
 (function (global, factory) {
     typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
@@ -3668,6 +3668,11 @@
                     _this.input.focus();
                 }
                 _this.passedElement.triggerEvent(EventType.showDropdown);
+                var activeElement = _this.choiceList.element.querySelector(getClassNamesSelector(_this.config.classNames.selectedState));
+                if (activeElement !== null && !isScrolledIntoView(activeElement, _this.choiceList.element)) {
+                    // We use the native scrollIntoView function instead of choiceList.scrollToChildElement to avoid smooth scroll.
+                    activeElement.scrollIntoView();
+                }
             });
             return this;
         };
@@ -3676,6 +3681,7 @@
             if (!this.dropdown.isActive) {
                 return this;
             }
+            this._removeHighlightedChoices();
             requestAnimationFrame(function () {
                 _this.dropdown.hide();
                 _this.containerOuter.close();
@@ -4045,7 +4051,6 @@
             };
             var showLabel = config.appendGroupInSearch && isSearching;
             var selectableChoices = false;
-            var highlightedEl = null;
             var renderChoices = function (choices, withinGroup) {
                 if (isSearching) {
                     // sortByRank is used to ensure stable sorting, as scores are non-unique
@@ -4066,9 +4071,6 @@
                     fragment.appendChild(dropdownItem);
                     if (isSearching || !choice.selected) {
                         selectableChoices = true;
-                    }
-                    else if (!highlightedEl) {
-                        highlightedEl = dropdownItem;
                     }
                     return index < choiceLimit;
                 });
@@ -4117,7 +4119,6 @@
             }
             this._renderNotice(fragment);
             this.choiceList.element.replaceChildren(fragment);
-            this._highlightChoice(highlightedEl);
         };
         Choices.prototype._renderItems = function () {
             var _this = this;
@@ -4591,24 +4592,24 @@
             https://en.wikipedia.org/wiki/UTF-16#Code_points_from_U+010000_to_U+10FFFF - UTF-16 surrogate pairs
             https://stackoverflow.com/a/70866532 - "Unidentified" for mobile
             http://www.unicode.org/versions/Unicode5.2.0/ch16.pdf#G19635 - U+FFFF is reserved (Section 16.7)
-        
+
             Logic: when a key event is sent, `event.key` represents its printable value _or_ one
             of a large list of special values indicating meta keys/functionality. In addition,
             key events for compose functionality contain a value of `Dead` when mid-composition.
-        
+
             I can't quite verify it, but non-English IMEs may also be able to generate key codes
             for code points in the surrogate-pair range, which could potentially be seen as having
             key.length > 1. Since `Fn` is one of the special keys, we can't distinguish by that
             alone.
-        
+
             Here, key.length === 1 means we know for sure the input was printable and not a special
             `key` value. When the length is greater than 1, it could be either a printable surrogate
             pair or a special `key` value. We can tell the difference by checking if the _character
             code_ value (not code point!) is in the "surrogate pair" range or not.
-        
+
             We don't use .codePointAt because an invalid code point would return 65535, which wouldn't
             pass the >= 0x10000 check we would otherwise use.
-        
+
             > ...The Unicode Standard sets aside 66 noncharacter code points. The last two code points
             > of each plane are noncharacters: U+FFFE and U+FFFF on the BMP...
             */
@@ -4970,6 +4971,18 @@
         Choices.prototype._onInvalid = function () {
             this.containerOuter.addInvalidState();
         };
+        /**
+         * Removes any highlighted choice options
+         */
+        Choices.prototype._removeHighlightedChoices = function () {
+            var highlightedState = this.config.classNames.highlightedState;
+            var highlightedChoices = Array.from(this.dropdown.element.querySelectorAll(getClassNamesSelector(highlightedState)));
+            // Remove any highlighted choices
+            highlightedChoices.forEach(function (choice) {
+                removeClassesFromElement(choice, highlightedState);
+                choice.setAttribute('aria-selected', 'false');
+            });
+        };
         Choices.prototype._highlightChoice = function (el) {
             if (el === void 0) { el = null; }
             var choices = Array.from(this.dropdown.element.querySelectorAll(selectableChoiceIdentifier));
@@ -4978,12 +4991,7 @@
             }
             var passedEl = el;
             var highlightedState = this.config.classNames.highlightedState;
-            var highlightedChoices = Array.from(this.dropdown.element.querySelectorAll(getClassNamesSelector(highlightedState)));
-            // Remove any highlighted choices
-            highlightedChoices.forEach(function (choice) {
-                removeClassesFromElement(choice, highlightedState);
-                choice.setAttribute('aria-selected', 'false');
-            });
+            this._removeHighlightedChoices();
             if (passedEl) {
                 this._highlightPosition = choices.indexOf(passedEl);
             }
@@ -5255,7 +5263,7 @@
                 throw new TypeError("".concat(caller, " called for an element which has multiple instances of Choices initialised on it"));
             }
         };
-        Choices.version = '11.1.0.2';
+        Choices.version = '11.2.0';
         return Choices;
     }());
 
